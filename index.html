@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aventura LSC - Juego de Lengua de Señas Colombiana</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome CDN para Iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Tone.js para efectos de sonido sintéticos -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <!-- Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800;900&display=swap');
+        
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #0b0f19;
+            background-image: radial-gradient(circle at 50% 0%, #1e293b 0%, #0b0f19 75%);
+        }
+
+        /* Estilos del Tablero Físico de Madera 3D */
+        .wood-board-container {
+            background: linear-gradient(135deg, #2a1b12 0%, #1a100b 50%, #2e1d13 100%);
+            box-shadow: 
+                0 25px 50px -12px rgba(0, 0, 0, 0.9), 
+                inset 0 2px 4px rgba(255, 255, 255, 0.1),
+                inset 0 -4px 12px rgba(0, 0, 0, 0.8);
+            border: 8px solid #422919;
+            border-radius: 2rem;
+            position: relative;
+        }
+
+        .wood-board-inner {
+            background: #141c2e;
+            background-image: radial-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 0);
+            background-size: 16px 16px;
+            box-shadow: inset 0 0 35px rgba(0, 0, 0, 0.85);
+            border: 2px solid #5a3822;
+        }
+
+        /* Casillas estilo fichas 3D de tablero */
+        .board-cell {
+            position: relative;
+            background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%);
+            border: 2px solid #334155;
+            box-shadow: 
+                0 4px 6px -1px rgba(0, 0, 0, 0.5), 
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .board-cell::after {
+            content: '';
+            position: absolute;
+            bottom: -3px;
+            left: 2%;
+            width: 96%;
+            height: 3px;
+            background: rgba(0,0,0,0.6);
+            border-radius: 0 0 6px 6px;
+        }
+
+        .board-cell.cell-start {
+            background: linear-gradient(145deg, #065f46 0%, #044e38 100%);
+            border-color: #10b981;
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+        }
+
+        .board-cell.cell-finish {
+            background: linear-gradient(145deg, #854d0e 0%, #713f12 100%);
+            border-color: #eab308;
+            box-shadow: 0 0 20px rgba(234, 179, 8, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+        }
+
+        .board-cell.cell-special {
+            background: linear-gradient(145deg, #312e81 0%, #1e1b4b 100%);
+            border-color: #6366f1;
+        }
+
+        /* Fichas de los 4 Jugadores */
+        .player-token {
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.7));
+        }
+
+        .token-p1 {
+            background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%);
+            border: 2px solid #99f6e4;
+            color: #042f2e;
+        }
+
+        .token-p2 {
+            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+            border: 2px solid #c7d2fe;
+            color: #1e1b4b;
+        }
+
+        .token-p3 {
+            background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+            border: 2px solid #ffedd5;
+            color: #431407;
+        }
+
+        .token-p4 {
+            background: linear-gradient(135deg, #ec4899 0%, #db2777 100%);
+            border: 2px solid #fce7f3;
+            color: #500724;
+        }
+
+        .path-connector {
+            position: absolute;
+            z-index: 0;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="text-slate-100 min-h-screen flex flex-col justify-between selection:bg-teal-500 selection:text-slate-950">
+
+    <!-- HEADER / BARRA SUPERIOR -->
+    <header class="w-full border-b border-slate-800 bg-slate-900/90 backdrop-blur-md sticky top-0 z-40">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center gap-3 cursor-pointer" onclick="goHome()" title="Menú principal">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-teal-500 to-emerald-400 flex items-center justify-center text-slate-950 font-black text-xl shadow-lg">
+                    <i class="fa-solid fa-hands-asl-interpreting"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-black tracking-tight bg-gradient-to-r from-teal-300 via-emerald-300 to-indigo-300 bg-clip-text text-transparent">
+                        Aventura LSC
+                    </h1>
+                    <p class="text-xs text-slate-400 font-semibold">Lengua de Señas Colombiana</p>
+                </div>
+            </div>
+            
+            <div id="top-controls" class="flex items-center gap-2">
+                <button id="btn-sound" onclick="toggleSound()" class="w-9 h-9 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300 hover:text-white hover:bg-slate-700 transition" title="Sonido">
+                    <i class="fa-solid fa-volume-high" id="sound-icon"></i>
+                </button>
+                <button onclick="goHome()" class="w-9 h-9 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300 hover:text-white hover:bg-slate-700 transition" title="Menú principal">
+                    <i class="fa-solid fa-house"></i>
+                </button>
+                <button id="btn-reset" onclick="confirmReset()" class="hidden px-3 py-1.5 text-xs font-bold rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-700 transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-rotate-right"></i> Reiniciar
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- CONTENEDOR PRINCIPAL -->
+    <main class="flex-1 max-w-6xl w-full mx-auto p-4 md:p-6 flex flex-col justify-center">
+
+        <!-- 0. PANTALLA DE INICIO: ELEGIR SECCIÓN -->
+        <section id="home-screen" class="max-w-3xl mx-auto w-full space-y-8">
+            <div class="text-center space-y-2">
+                <span class="px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-widest bg-teal-500/10 text-teal-400 border border-teal-500/20">
+                    Lengua de Señas Colombiana
+                </span>
+                <h2 class="text-3xl sm:text-4xl font-black text-white">¿Qué quieres hacer hoy?</h2>
+                <p class="text-slate-400 text-sm">Primero repasa las señas y después ponlas a prueba en el juego.</p>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <button onclick="showReview()" class="p-6 rounded-2xl border-2 border-indigo-500/40 bg-slate-900/90 hover:bg-indigo-500/10 hover:border-indigo-400 text-left transition space-y-3 active:scale-[0.98] shadow-xl">
+                    <div class="w-14 h-14 rounded-2xl bg-indigo-500/20 text-indigo-300 flex items-center justify-center text-2xl">
+                        <i class="fa-solid fa-book-open"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-black text-white">Repaso</h3>
+                        <p class="text-sm text-slate-400">Mira cada seña con su nombre para estudiarlas antes de jugar.</p>
+                    </div>
+                    <span class="inline-block text-xs font-bold text-indigo-300"><span class="sign-count">22</span> señas &rarr;</span>
+                </button>
+
+                <button onclick="showSetup()" class="p-6 rounded-2xl border-2 border-teal-500/40 bg-slate-900/90 hover:bg-teal-500/10 hover:border-teal-400 text-left transition space-y-3 active:scale-[0.98] shadow-xl">
+                    <div class="w-14 h-14 rounded-2xl bg-teal-500/20 text-teal-300 flex items-center justify-center text-2xl">
+                        <i class="fa-solid fa-chess-board"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-black text-white">Juego</h3>
+                        <p class="text-sm text-slate-400">Carrera de tablero para 1 a 4 jugadores respondiendo señas.</p>
+                    </div>
+                    <span class="inline-block text-xs font-bold text-teal-300">Jugar &rarr;</span>
+                </button>
+            </div>
+        </section>
+
+
+        <!-- 0.5 PANTALLA DE REPASO: SEÑA + NOMBRE -->
+        <section id="review-screen" class="hidden space-y-6">
+            <div class="flex flex-wrap items-end justify-between gap-4">
+                <div>
+                    <h2 class="text-2xl sm:text-3xl font-black text-white">Repaso de Señas</h2>
+                    <p id="review-count" class="text-slate-400 text-sm">Toca una seña para verla más grande.</p>
+                </div>
+                <div class="relative w-full sm:w-64">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm"></i>
+                    <input id="review-search" type="search" oninput="renderReview()" placeholder="Buscar seña..." autocomplete="off"
+                           class="w-full pl-9 pr-3 py-2.5 rounded-xl bg-slate-900 border-2 border-slate-800 focus:border-teal-400 outline-none text-sm text-white placeholder-slate-500">
+                </div>
+            </div>
+
+            <div id="review-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                <!-- Tarjetas por JS -->
+            </div>
+
+            <p id="review-empty" class="hidden text-center text-slate-400 py-10">No se encontró ninguna seña con ese nombre.</p>
+
+            <div class="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+                <button onclick="showHome()" class="px-6 py-3 rounded-xl bg-slate-800 border border-slate-700 text-slate-200 font-bold text-sm hover:bg-slate-700 transition">
+                    <i class="fa-solid fa-arrow-left mr-1"></i> Volver al menú
+                </button>
+                <button onclick="showSetup()" class="px-6 py-3 rounded-xl bg-gradient-to-r from-teal-400 to-emerald-400 text-slate-950 font-black text-sm hover:brightness-110 transition">
+                    <i class="fa-solid fa-chess-board mr-1"></i> Ya repasé, ¡a jugar!
+                </button>
+            </div>
+        </section>
+
+
+        <!-- 1. PANTALLA DE SELECCIÓN DE JUGADORES -->
+        <section id="setup-screen" class="hidden max-w-xl mx-auto w-full space-y-6">
+            <div class="text-center space-y-2">
+                <span class="px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-widest bg-teal-500/10 text-teal-400 border border-teal-500/20">
+                    Juego Competitivo de Tablero
+                </span>
+                <h2 class="text-3xl sm:text-4xl font-black text-white">Selecciona los Jugadores</h2>
+                <p class="text-slate-400 text-sm">Responde señas en cada turno. Escoge de 1 a 4 participantes.</p>
+            </div>
+
+            <div class="bg-slate-900/90 rounded-2xl p-6 sm:p-8 border border-slate-800 shadow-2xl space-y-6">
+                <div class="space-y-3">
+                    <label class="text-xs font-extrabold uppercase tracking-wider text-slate-400 block">
+                        Cantidad de Jugadores (1 a 4)
+                    </label>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <button onclick="selectPlayers(1)" id="btn-p1" class="p-4 rounded-xl border-2 border-teal-500 bg-teal-500/10 text-center transition group">
+                            <div class="w-10 h-10 rounded-xl bg-teal-500 text-slate-950 flex items-center justify-center font-bold text-lg mx-auto mb-2 shadow-md">
+                                <i class="fa-solid fa-user"></i>
+                            </div>
+                            <div class="font-bold text-white text-sm">1 Jugador</div>
+                        </button>
+
+                        <button onclick="selectPlayers(2)" id="btn-p2" class="p-4 rounded-xl border-2 border-slate-800 bg-slate-950/50 text-center transition hover:border-slate-700 group">
+                            <div class="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold text-lg mx-auto mb-2 shadow-md">
+                                <i class="fa-solid fa-user-group"></i>
+                            </div>
+                            <div class="font-bold text-white text-sm">2 Jugadores</div>
+                        </button>
+
+                        <button onclick="selectPlayers(3)" id="btn-p3" class="p-4 rounded-xl border-2 border-slate-800 bg-slate-950/50 text-center transition hover:border-slate-700 group">
+                            <div class="w-10 h-10 rounded-xl bg-orange-500/20 text-orange-400 flex items-center justify-center font-bold text-lg mx-auto mb-2 shadow-md">
+                                <i class="fa-solid fa-users"></i>
+                            </div>
+                            <div class="font-bold text-white text-sm">3 Jugadores</div>
+                        </button>
+
+                        <button onclick="selectPlayers(4)" id="btn-p4" class="p-4 rounded-xl border-2 border-slate-800 bg-slate-950/50 text-center transition hover:border-slate-700 group">
+                            <div class="w-10 h-10 rounded-xl bg-pink-500/20 text-pink-400 flex items-center justify-center font-bold text-lg mx-auto mb-2 shadow-md">
+                                <i class="fa-solid fa-people-group"></i>
+                            </div>
+                            <div class="font-bold text-white text-sm">4 Jugadores</div>
+                        </button>
+                    </div>
+                </div>
+
+                <button onclick="startGame()" class="w-full py-4 bg-gradient-to-r from-teal-400 via-emerald-400 to-teal-500 text-slate-950 font-black text-lg rounded-xl shadow-xl hover:brightness-110 active:scale-[0.99] transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-chess-board"></i> Ir al Tablero de Juego
+                </button>
+                <button onclick="showHome()" class="w-full py-2.5 text-sm font-bold text-slate-400 hover:text-white transition">
+                    <i class="fa-solid fa-arrow-left mr-1"></i> Volver al menú
+                </button>
+            </div>
+        </section>
+
+
+        <!-- 2. PANTALLA PRINCIPAL: TABLERO DE JUEGO Y SELECCIÓN DE DIFICULTAD DEL TURNO -->
+        <section id="game-screen" class="hidden space-y-6">
+            
+            <!-- Barra Estado de Jugadores -->
+            <div class="bg-slate-900/90 rounded-2xl p-4 border border-slate-800 flex flex-wrap items-center justify-between gap-4 shadow-xl">
+                <div class="flex items-center gap-4">
+                    <div id="player-turn-badge" class="w-12 h-12 rounded-xl token-p1 flex items-center justify-center font-black text-xl shadow-lg">
+                        J1
+                    </div>
+                    <div>
+                        <span class="text-[10px] font-black uppercase tracking-widest text-slate-400 block">Es el Turno de</span>
+                        <h3 id="player-turn-name" class="text-lg font-black text-white">Jugador 1</h3>
+                    </div>
+                </div>
+
+                <!-- Posición Actual de Todos los Jugadores (1 a 4) -->
+                <div id="players-status-bar" class="flex flex-wrap items-center gap-2">
+                    <!-- Dinámico por JS -->
+                </div>
+            </div>
+
+            <!-- TABLERO VISUAL DE MESA ESTILO SERPENTEANTE 3D -->
+            <div class="wood-board-container p-3 sm:p-5 shadow-2xl">
+                <div class="wood-board-inner rounded-2xl p-4 sm:p-6 space-y-4">
+                    <div class="flex justify-between items-center text-xs font-bold px-1">
+                        <span class="text-amber-400 flex items-center gap-2">
+                            <i class="fa-solid fa-dice-d20 text-lg"></i>
+                            <span>Tablero de Juego LSC (Casillas 0 a 20)</span>
+                        </span>
+                        <span class="text-slate-400 hidden sm:inline">Recorrido Serpenteante en S</span>
+                    </div>
+                    
+                    <!-- Layout Serpenteante del Tablero (21 casillas de 0 a 20) -->
+                    <div id="board-grid" class="grid grid-cols-4 sm:grid-cols-7 gap-2 sm:gap-3.5 relative z-10">
+                        <!-- Las casillas se renderizan dinámicamente por JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- SELECTOR DE DIFICULTAD DINÁMICO PARA EL TURNO -->
+            <div id="turn-difficulty-panel" class="bg-slate-900/90 rounded-2xl p-6 border border-slate-800 shadow-2xl space-y-4">
+                <div class="text-center space-y-1">
+                    <h3 class="text-xl font-black text-white" id="turn-choice-title">Jugador 1, ¿Qué dificultad eliges para este turno?</h3>
+                    <p class="text-xs text-slate-400">Elegir mayor dificultad te permite avanzar más casillas. El tipo de pregunta será aleatorio.</p>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+                    <!-- Opción Fácil -->
+                    <button onclick="chooseTurnDifficulty('facil')" class="p-5 rounded-2xl border-2 border-emerald-500/40 bg-slate-950 hover:bg-emerald-500/10 hover:border-emerald-500 text-left transition group active:scale-[0.98]">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="font-black text-emerald-400 text-base">Fácil</span>
+                            <span class="px-2.5 py-1 rounded-md bg-emerald-500/20 text-emerald-300 font-bold text-xs">+1 Casilla</span>
+                        </div>
+                        <p class="text-xs text-slate-300 font-semibold mb-1">1 Pregunta</p>
+                        <p class="text-[11px] text-slate-400">Ideal para asegurar avance continuo sin arriesgar tanto.</p>
+                    </button>
+
+                    <!-- Opción Medio -->
+                    <button onclick="chooseTurnDifficulty('medio')" class="p-5 rounded-2xl border-2 border-amber-500/40 bg-slate-950 hover:bg-amber-500/10 hover:border-amber-500 text-left transition group active:scale-[0.98]">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="font-black text-amber-400 text-base">Medio</span>
+                            <span class="px-2.5 py-1 rounded-md bg-amber-500/20 text-amber-300 font-bold text-xs">+2 Casillas</span>
+                        </div>
+                        <p class="text-xs text-slate-300 font-semibold mb-1">2 Preguntas seguidas</p>
+                        <p class="text-[11px] text-slate-400">Debes responder ambas correctamente.</p>
+                    </button>
+
+                    <!-- Opción Difícil -->
+                    <button onclick="chooseTurnDifficulty('dificil')" class="p-5 rounded-2xl border-2 border-rose-500/40 bg-slate-950 hover:bg-rose-500/10 hover:border-rose-500 text-left transition group active:scale-[0.98]">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="font-black text-rose-400 text-base">Difícil</span>
+                            <span class="px-2.5 py-1 rounded-md bg-rose-500/20 text-rose-300 font-bold text-xs">+3 Casillas</span>
+                        </div>
+                        <p class="text-xs text-slate-300 font-semibold mb-1">3 Preguntas seguidas</p>
+                        <p class="text-[11px] text-slate-400">¡Gran avance! Avance directo de 3 posiciones.</p>
+                    </button>
+                </div>
+            </div>
+
+            <!-- MODAL / ÁREA DE PREGUNTAS DEL TURNO -->
+            <div id="question-panel" class="hidden bg-slate-900/95 rounded-2xl p-6 border-2 border-teal-500/40 shadow-2xl space-y-6">
+                <!-- Header Pregunta -->
+                <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                    <span id="question-progress-label" class="text-xs font-black text-teal-400 uppercase tracking-wider">Pregunta 1 de 1</span>
+                    <span id="question-mode-badge" class="px-3 py-1 rounded-lg bg-indigo-500/20 text-indigo-300 font-bold text-xs border border-indigo-500/30">
+                        Modo de Pregunta
+                    </span>
+                </div>
+
+                <!-- Enunciado de la Pregunta -->
+                <div class="text-center space-y-1">
+                    <h4 id="question-title" class="text-lg font-bold text-white">¿Cuál es la respuesta correcta?</h4>
+                </div>
+
+                <!-- Display Central (Imagen Local de la Seña o Texto de la Palabra) -->
+                <div id="question-display-area" class="flex justify-center items-center py-2">
+                    <!-- Contenido dinámico -->
+                </div>
+
+                <!-- Opciones de Respuesta -->
+                <div id="options-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                    <!-- Opciones por JS -->
+                </div>
+            </div>
+
+            <!-- FEEDBACK DEL RESULTADO DEL TURNO -->
+            <div id="turn-feedback-panel" class="hidden bg-slate-900/90 rounded-2xl p-6 border border-slate-800 text-center space-y-4 shadow-2xl">
+                <div id="feedback-icon" class="w-16 h-16 rounded-full mx-auto flex items-center justify-center text-3xl">
+                    <!-- Icono -->
+                </div>
+                <div>
+                    <h3 id="feedback-title" class="text-2xl font-black text-white">¡Resultado del Turno!</h3>
+                    <p id="feedback-desc" class="text-slate-300 text-sm mt-1">Detalle del avance.</p>
+                </div>
+                <button onclick="passTurnToNextPlayer()" class="px-8 py-3 bg-teal-400 text-slate-950 font-black rounded-xl hover:bg-teal-300 transition shadow-lg">
+                    Siguiente Turno <i class="fa-solid fa-arrow-right ml-1"></i>
+                </button>
+            </div>
+
+        </section>
+
+        <!-- 3. PANTALLA DE VICTORIA -->
+        <section id="win-screen" class="hidden max-w-xl mx-auto w-full text-center space-y-6 py-8">
+            <div class="bg-slate-900/95 rounded-3xl p-8 border-2 border-amber-500/40 shadow-2xl space-y-6">
+                <div id="winner-badge-icon" class="w-20 h-20 rounded-2xl bg-amber-500/10 border-2 border-amber-500/40 text-amber-400 mx-auto flex items-center justify-center text-4xl shadow-xl">
+                    <i class="fa-solid fa-trophy"></i>
+                </div>
+
+                <div class="space-y-2">
+                    <span class="px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                        ¡Ganador de la Carrera!
+                    </span>
+                    <h2 id="winner-title" class="text-3xl sm:text-4xl font-black text-white">¡Jugador ha ganado!</h2>
+                    <p class="text-slate-300 text-sm">Ha demostrado un gran dominio de la Lengua de Señas Colombiana llegando a la casilla 20.</p>
+                </div>
+
+                <button onclick="showSetup()" class="w-full py-4 bg-gradient-to-r from-teal-400 to-emerald-400 text-slate-950 font-black rounded-xl shadow-lg hover:brightness-110 transition">
+                    <i class="fa-solid fa-rotate-right mr-1"></i> Jugar Otra Partida
+                </button>
+                <div class="flex gap-3">
+                    <button onclick="showReview()" class="flex-1 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-slate-200 font-bold text-xs hover:bg-slate-700 transition">
+                        <i class="fa-solid fa-book-open mr-1"></i> Repasar señas
+                    </button>
+                    <button onclick="showHome()" class="flex-1 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-slate-200 font-bold text-xs hover:bg-slate-700 transition">
+                        <i class="fa-solid fa-house mr-1"></i> Menú principal
+                    </button>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="w-full border-t border-slate-900 bg-slate-950/60 py-6 px-4 mt-6">
+        <div class="max-w-6xl mx-auto text-center space-y-3">
+            <p class="text-xs font-extrabold uppercase tracking-widest text-slate-500">
+                <i class="fa-solid fa-hands-asl-interpreting text-teal-400 mr-1"></i> Desarrollado por
+            </p>
+            <ul class="flex flex-wrap justify-center gap-2">
+                <li class="px-4 py-1.5 rounded-full bg-teal-500/10 border border-teal-500/30 text-teal-300 text-sm font-bold">Adriano Aragón</li>
+                <li class="px-4 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 text-sm font-bold">Sebastián Blanco</li>
+                <li class="px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-sm font-bold">Isaac Torres</li>
+                <li class="px-4 py-1.5 rounded-full bg-pink-500/10 border border-pink-500/30 text-pink-300 text-sm font-bold">Santiago Perez</li>
+                <li class="px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-sm font-bold">Ney Salazar</li>
+                <li class="px-4 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/30 text-orange-300 text-sm font-bold">Sergio Rojano</li>
+            </ul>
+            <p class="text-xs text-slate-500">Práctica de Lengua de Señas Colombiana (LSC) &bull; Tablero Interactivo</p>
+        </div>
+    </footer>
+
+    <!-- MODAL CONFIRMACIÓN REINICIO -->
+    <div id="confirm-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-2xl">
+            <h4 class="text-lg font-bold text-white">¿Reiniciar partida?</h4>
+            <p class="text-xs text-slate-400">Se perderá el progreso actual y se volverá al menú principal.</p>
+            <div class="flex gap-3">
+                <button onclick="hideResetModal()" class="flex-1 py-2 rounded-xl bg-slate-800 text-slate-300 font-bold text-xs hover:bg-slate-700">Cancelar</button>
+                <button onclick="confirmResetAction()" class="flex-1 py-2 rounded-xl bg-rose-600 text-white font-bold text-xs hover:bg-rose-500">Reiniciar</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- MODAL: SEÑA AMPLIADA (REPASO) -->
+    <div id="sign-modal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 flex items-center justify-center p-4" onclick="closeSignModal()">
+        <div class="bg-slate-900 border-2 border-slate-700 rounded-2xl p-5 max-w-md w-full text-center space-y-4 shadow-2xl" onclick="event.stopPropagation()">
+            <div id="sign-modal-img" class="flex justify-center"></div>
+            <h3 id="sign-modal-word" class="text-3xl font-black text-white"></h3>
+            <button onclick="closeSignModal()" class="px-6 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-slate-200 font-bold text-sm hover:bg-slate-700 transition">Cerrar</button>
+        </div>
+    </div>
+
+    <script>
+        /* ==========================================================================
+           BASE DE DATOS DE PREGUNTAS CON LAS RUTAS EXACTAS DE IMÁGENES PROVISTAS
+           ========================================================================== */
+
+        const questionsDatabase = [
+            { id: 1, word: "FRIJOL", image: "imagenes/frijol.jpg" },
+            { id: 2, word: "FRÍO", image: "imagenes/frio.jpg" },
+            { id: 3, word: "GALLETA", image: "imagenes/galleta.jpg" },
+            { id: 4, word: "GASEOSA", image: "imagenes/gaseosa.jpg" },
+            { id: 5, word: "GELATINA", image: "imagenes/gelatina.jpg" },
+            { id: 6, word: "HAMBURGUESA", image: "imagenes/hamburguesa.jpg" },
+            { id: 7, word: "HELADO", image: "imagenes/helado.jpg" },
+            { id: 8, word: "HÍGADO", image: "imagenes/higado.jpg" },
+            { id: 9, word: "HUEVO", image: "imagenes/huevo.jpg" },
+            { id: 10, word: "JAMÓN", image: "imagenes/jamon.jpg" },
+            { id: 11, word: "JUGO", image: "imagenes/jugo.jpg" },
+            { id: 12, word: "LECHE", image: "imagenes/leche.jpg" },
+            { id: 13, word: "LENTEJA", image: "imagenes/lenteja.jpg" },
+            { id: 14, word: "LLENO", image: "imagenes/lleno.jpg" },
+            { id: 15, word: "MAZORCA", image: "imagenes/mazorca.jpg" },
+            { id: 16, word: "MERMELADA", image: "imagenes/mermelada.jpg" },
+            { id: 17, word: "NARANJA", image: "imagenes/naranja.jpg" },
+            { id: 18, word: "OLER", image: "imagenes/oler.jpg" },
+            { id: 19, word: "PAN", image: "imagenes/pan.jpg" },
+            { id: 20, word: "PANELA", image: "imagenes/panela.jpg" },
+            { id: 21, word: "PAPA", image: "imagenes/papa.jpg" },
+            { id: 22, word: "PERRO CALIENTE", image: "imagenes/perro_caliente.jpg" }
+        ];
+
+        /* ==========================================================================
+           ESTADO GLOBAL DEL JUEGO (HASTA 4 JUGADORES)
+           ========================================================================== */
+
+        const playerProfiles = [
+            { id: 1, name: "Jugador 1", tokenClass: "token-p1", textClass: "text-teal-400", bgClass: "bg-teal-500" },
+            { id: 2, name: "Jugador 2", tokenClass: "token-p2", textClass: "text-indigo-400", bgClass: "bg-indigo-500" },
+            { id: 3, name: "Jugador 3", tokenClass: "token-p3", textClass: "text-orange-400", bgClass: "bg-orange-500" },
+            { id: 4, name: "Jugador 4", tokenClass: "token-p4", textClass: "text-pink-400", bgClass: "bg-pink-500" }
+        ];
+
+        let gameConfig = {
+            numPlayers: 1,
+            maxBoardPosition: 20, // Tablero de 0 a 20 casillas
+            soundEnabled: true
+        };
+
+        let gameState = {
+            players: [],
+            currentPlayerIndex: 0,
+            selectedTurnDifficulty: 'facil',
+            activeQuestions: [],
+            currentQuestionIdx: 0,
+            turnCorrectCount: 0
+        };
+
+        /* ==========================================================================
+           BARAJA SIN REPETICIONES
+           Las señas se reparten como cartas: ninguna vuelve a salir hasta que
+           hayan salido todas. Al acabarse, se baraja de nuevo evitando que las
+           últimas señas vistas queden al inicio de la nueva baraja.
+           ========================================================================== */
+
+        let signDeck = [];
+        let recentIds = [];
+
+        function shuffle(arr) {
+            const a = [...arr];
+            for (let i = a.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [a[i], a[j]] = [a[j], a[i]];
+            }
+            return a;
+        }
+
+        function drawTargets(n) {
+            const drawn = [];
+            while (drawn.length < n) {
+                if (signDeck.length === 0) {
+                    const fresh = shuffle(questionsDatabase.filter(q => !drawn.some(d => d.id === q.id)));
+                    // las vistas más recientemente se van al final de la baraja nueva
+                    const notRecent = fresh.filter(q => !recentIds.includes(q.id));
+                    const recent = fresh.filter(q => recentIds.includes(q.id));
+                    signDeck = [...notRecent, ...recent];
+                }
+                const card = signDeck.shift();
+                drawn.push(card);
+                recentIds.push(card.id);
+                if (recentIds.length > 4) recentIds.shift();
+            }
+            return drawn;
+        }
+
+        /* ==========================================================================
+           NAVEGACIÓN ENTRE SECCIONES
+           ========================================================================== */
+
+        const SCREENS = ['home-screen', 'review-screen', 'setup-screen', 'game-screen', 'win-screen'];
+
+        function showScreen(id) {
+            SCREENS.forEach(s => document.getElementById(s).classList.toggle('hidden', s !== id));
+            document.getElementById('btn-reset').classList.toggle('hidden', id !== 'game-screen');
+            window.scrollTo({ top: 0 });
+        }
+
+        function showHome() { playSound('click'); showScreen('home-screen'); }
+        function showSetup() { playSound('click'); showScreen('setup-screen'); }
+        function showReview() {
+            playSound('click');
+            document.getElementById('review-search').value = '';
+            renderReview();
+            showScreen('review-screen');
+        }
+
+        // Si hay una partida en curso, pide confirmación antes de salir
+        function goHome() {
+            if (!document.getElementById('game-screen').classList.contains('hidden')) {
+                confirmReset();
+            } else {
+                showHome();
+            }
+        }
+
+        /* ==========================================================================
+           SECCIÓN DE REPASO
+           ========================================================================== */
+
+        function normalizeText(t) {
+            return t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        }
+
+        function renderReview() {
+            const grid = document.getElementById('review-grid');
+            const query = normalizeText(document.getElementById('review-search').value.trim());
+            const list = questionsDatabase.filter(q => normalizeText(q.word).includes(query));
+
+            grid.innerHTML = '';
+            list.forEach(q => {
+                const card = document.createElement('button');
+                card.className = "group bg-slate-900/90 border-2 border-slate-800 hover:border-teal-400 rounded-2xl p-3 text-center transition space-y-2 active:scale-[0.98] shadow-lg";
+                card.appendChild(createImgElement(q.image, q.word, "h-56 w-full object-contain rounded-xl bg-white p-1"));
+
+                const label = document.createElement('h3');
+                label.className = "text-base font-black text-white group-hover:text-teal-300 transition";
+                label.innerText = q.word;
+                card.appendChild(label);
+
+                card.onclick = () => openSignModal(q);
+                grid.appendChild(card);
+            });
+
+            document.getElementById('review-empty').classList.toggle('hidden', list.length > 0);
+            document.getElementById('review-count').innerText = query
+                ? `${list.length} de ${questionsDatabase.length} señas`
+                : `${questionsDatabase.length} señas · Toca una para verla más grande.`;
+        }
+
+        function openSignModal(q) {
+            playSound('click');
+            const box = document.getElementById('sign-modal-img');
+            box.innerHTML = '';
+            box.appendChild(createImgElement(q.image, q.word, "max-h-80 w-auto object-contain rounded-xl bg-white p-2"));
+            document.getElementById('sign-modal-word').innerText = q.word;
+            document.getElementById('sign-modal').classList.remove('hidden');
+        }
+
+        function closeSignModal() {
+            document.getElementById('sign-modal').classList.add('hidden');
+        }
+
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSignModal(); });
+
+        function selectPlayers(num) {
+            playSound('click');
+            gameConfig.numPlayers = num;
+            
+            for (let i = 1; i <= 4; i++) {
+                const btn = document.getElementById(`btn-p${i}`);
+                if (i === num) {
+                    btn.className = `p-4 rounded-xl border-2 border-teal-500 bg-teal-500/10 text-center transition group`;
+                } else {
+                    btn.className = `p-4 rounded-xl border-2 border-slate-800 bg-slate-950/50 text-center transition hover:border-slate-700 group`;
+                }
+            }
+        }
+
+        function startGame() {
+            playSound('click');
+            gameState.players = [];
+
+            for (let i = 0; i < gameConfig.numPlayers; i++) {
+                gameState.players.push({
+                    ...playerProfiles[i],
+                    position: 0
+                });
+            }
+
+            gameState.currentPlayerIndex = 0;
+
+            showScreen('game-screen');
+
+            renderPlayersStatusBar();
+            renderBoard();
+            updateTurnHeader();
+        }
+
+        function renderPlayersStatusBar() {
+            const container = document.getElementById('players-status-bar');
+            container.innerHTML = '';
+
+            gameState.players.forEach(p => {
+                const box = document.createElement('div');
+                box.className = "px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center gap-2";
+                box.innerHTML = `
+                    <span class="w-3 h-3 rounded-full ${p.bgClass} inline-block"></span>
+                    <span class="text-xs font-bold text-slate-300">${p.name}: <strong class="${p.textClass}" id="p${p.id}-pos-label">Casilla ${p.position}</strong></span>
+                `;
+                container.appendChild(box);
+            });
+        }
+
+        /* ==========================================================================
+           TABLERO SERPENTEANTE 3D CON ORDEN S-SNAKE (CASILLAS 0 A 20)
+           ========================================================================== */
+
+        function renderBoard() {
+            const boardGrid = document.getElementById('board-grid');
+            boardGrid.innerHTML = '';
+
+            // Definimos mapa de casillas para hacer recorrido serpenteante en matriz 3x7 (21 casillas: 0 a 20)
+            // Fila 0 (Izq -> Der): 0, 1, 2, 3, 4, 5, 6
+            // Fila 1 (Der -> Izq): 13, 12, 11, 10, 9, 8, 7
+            // Fila 2 (Izq -> Der): 14, 15, 16, 17, 18, 19, 20
+            const snakeOrderMobile = Array.from({length: 21}, (_, i) => i);
+            const snakeOrderDesktop = [
+                0, 1, 2, 3, 4, 5, 6,
+                13, 12, 11, 10, 9, 8, 7,
+                14, 15, 16, 17, 18, 19, 20
+            ];
+
+            const isDesktop = window.innerWidth >= 640;
+            const displayOrder = isDesktop ? snakeOrderDesktop : snakeOrderMobile;
+
+            displayOrder.forEach(cellNum => {
+                const i = cellNum;
+                const cell = document.createElement('div');
+                const isStart = i === 0;
+                const isFinish = i === gameConfig.maxBoardPosition;
+                const isSpecial = i === 5 || i === 10 || i === 15;
+
+                let cellClass = "board-cell rounded-2xl min-h-[75px] sm:min-h-[90px] p-2 flex flex-col justify-between";
+                if (isStart) cellClass += " cell-start";
+                else if (isFinish) cellClass += " cell-finish";
+                else if (isSpecial) cellClass += " cell-special";
+
+                cell.className = cellClass;
+
+                // Cabecera de casilla
+                const header = document.createElement('div');
+                header.className = "flex justify-between items-center w-full";
+
+                const numBadge = document.createElement('span');
+                numBadge.className = `text-[10px] font-black ${isFinish ? 'text-amber-300' : (isStart ? 'text-emerald-300' : 'text-slate-400')}`;
+                numBadge.innerText = isStart ? 'INICIO (0)' : (isFinish ? 'META (20)' : `Nº ${i}`);
+                header.appendChild(numBadge);
+
+                if (isSpecial) {
+                    const star = document.createElement('i');
+                    star.className = "fa-solid fa-star text-[10px] text-indigo-400";
+                    header.appendChild(star);
+                }
+
+                cell.appendChild(header);
+
+                // Fichas de Jugadores en esta casilla
+                const tokensContainer = document.createElement('div');
+                tokensContainer.className = "flex flex-wrap gap-1 items-center justify-center my-auto";
+
+                gameState.players.forEach(p => {
+                    if (p.position === i) {
+                        const token = document.createElement('div');
+                        token.className = `w-6 h-6 sm:w-7 sm:h-7 rounded-full ${p.tokenClass} flex items-center justify-center text-[10px] sm:text-xs font-black player-token shadow-lg`;
+                        token.innerText = `J${p.id}`;
+                        token.title = `${p.name} (Casilla ${i})`;
+                        tokensContainer.appendChild(token);
+                    }
+                });
+
+                cell.appendChild(tokensContainer);
+                boardGrid.appendChild(cell);
+            });
+
+            // Actualizar Etiquetas de Estado de todos los jugadores
+            gameState.players.forEach(p => {
+                const label = document.getElementById(`p${p.id}-pos-label`);
+                if (label) label.innerText = `Casilla ${p.position}`;
+            });
+        }
+
+        function updateTurnHeader() {
+            const player = gameState.players[gameState.currentPlayerIndex];
+            const badge = document.getElementById('player-turn-badge');
+            const nameLabel = document.getElementById('player-turn-name');
+
+            badge.className = `w-12 h-12 rounded-xl ${player.tokenClass} flex items-center justify-center font-black text-xl shadow-lg`;
+            badge.innerText = `J${player.id}`;
+            nameLabel.innerText = player.name;
+
+            document.getElementById('turn-choice-title').innerText = `${player.name}, ¿Qué dificultad eliges para este turno?`;
+
+            document.getElementById('turn-difficulty-panel').classList.remove('hidden');
+            document.getElementById('question-panel').classList.add('hidden');
+            document.getElementById('turn-feedback-panel').classList.add('hidden');
+        }
+
+        /* ==========================================================================
+           DIFICULTAD Y PREGUNTAS ALEATORIAS AUTOMÁTICAS
+           ========================================================================== */
+
+        function chooseTurnDifficulty(diff) {
+            playSound('click');
+            gameState.selectedTurnDifficulty = diff;
+
+            let qCount = diff === 'facil' ? 1 : (diff === 'medio' ? 2 : 3);
+
+            // Seleccionar preguntas aleatorias
+            gameState.activeQuestions = [];
+            // Baraja sin repeticiones: ninguna seña vuelve a salir hasta agotar las demás
+            const targets = drawTargets(qCount);
+
+            for (let i = 0; i < qCount; i++) {
+                // SELECCIÓN AUTOMÁTICA Y ALEATORIA DEL TIPO DE PREGUNTA
+                // Tipo 0: Ver Foto Seña -> Adivinar Palabra (4 texto)
+                // Tipo 1: Ver Palabra -> Adivinar Foto Seña (4 fotos)
+                let randomType = Math.random() < 0.5 ? 0 : 1;
+                gameState.activeQuestions.push({
+                    target: targets[i],
+                    type: randomType
+                });
+            }
+
+            gameState.currentQuestionIdx = 0;
+            gameState.turnCorrectCount = 0;
+
+            document.getElementById('turn-difficulty-panel').classList.add('hidden');
+            document.getElementById('question-panel').classList.remove('hidden');
+
+            loadCurrentQuestion();
+        }
+
+        function loadCurrentQuestion() {
+            const currentQ = gameState.activeQuestions[gameState.currentQuestionIdx];
+            const target = currentQ.target;
+            const qType = currentQ.type;
+
+            document.getElementById('question-progress-label').innerText = `Pregunta ${gameState.currentQuestionIdx + 1} de ${gameState.activeQuestions.length}`;
+
+            const badgeMode = document.getElementById('question-mode-badge');
+            const titleLabel = document.getElementById('question-title');
+            const displayArea = document.getElementById('question-display-area');
+            const optionsGrid = document.getElementById('options-grid');
+
+            displayArea.innerHTML = '';
+            optionsGrid.innerHTML = '';
+
+            // Generar 3 opciones incorrectas
+            let incorrects = shuffle(questionsDatabase.filter(q => q.id !== target.id)).slice(0, 3);
+
+            let allOptions = shuffle([...incorrects, target]);
+
+            if (qType === 0) {
+                // TIPO A: Muestra Foto Real de Seña -> Adivina la Palabra
+                badgeMode.innerText = "Modo: Identificar Palabra";
+                titleLabel.innerText = "¿Qué palabra corresponde a esta seña?";
+
+                const imgEl = createImgElement(target.image, target.word, "max-h-52 sm:max-h-60 w-auto object-contain rounded-2xl border-2 border-slate-700 bg-white p-2 shadow-2xl");
+                displayArea.appendChild(imgEl);
+
+                optionsGrid.className = "grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2";
+
+                allOptions.forEach(opt => {
+                    const btn = document.createElement('button');
+                    btn.className = "p-4 bg-slate-800/90 hover:bg-slate-700 border-2 border-slate-700 hover:border-teal-400 rounded-2xl font-black text-slate-100 text-base transition flex items-center justify-between group active:scale-[0.98]";
+                    btn.innerHTML = `<span>${opt.word}</span><i class="fa-solid fa-arrow-right text-slate-500 group-hover:text-teal-400 transition"></i>`;
+                    btn.onclick = () => handleAnswer(opt.id === target.id);
+                    optionsGrid.appendChild(btn);
+                });
+
+            } else {
+                // TIPO B: Muestra Texto de Palabra -> Adivina la Foto Real de la Seña
+                badgeMode.innerText = "Modo: Identificar Seña";
+                titleLabel.innerText = `¿Cuál es la foto de la seña para "${target.word}"?`;
+
+                const textCard = document.createElement('div');
+                textCard.className = "px-8 py-5 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border-2 border-teal-500/40 rounded-2xl shadow-xl text-center";
+                textCard.innerHTML = `<span class="text-[10px] font-black text-teal-400 uppercase tracking-widest block mb-1">Palabra a Buscar</span><h3 class="text-3xl font-black text-white">${target.word}</h3>`;
+                displayArea.appendChild(textCard);
+
+                optionsGrid.className = "grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2";
+
+                allOptions.forEach(opt => {
+                    const btn = document.createElement('button');
+                    btn.className = "p-2 bg-slate-800/90 hover:bg-slate-700 border-2 border-slate-700 hover:border-teal-400 rounded-2xl transition flex flex-col items-center gap-2 group active:scale-[0.98]";
+                    
+                    const imgEl = createImgElement(opt.image, opt.word, "h-36 sm:h-44 w-full object-contain rounded-xl bg-white p-1 border border-slate-800");
+                    btn.appendChild(imgEl);
+
+                    const labelSpan = document.createElement('span');
+                    labelSpan.className = "text-xs font-bold text-slate-400 group-hover:text-teal-300";
+                    labelSpan.innerText = "Opción";
+                    btn.appendChild(labelSpan);
+
+                    btn.onclick = () => handleAnswer(opt.id === target.id);
+                    optionsGrid.appendChild(btn);
+                });
+            }
+        }
+
+        function handleAnswer(isCorrect) {
+            if (isCorrect) {
+                playSound('correct');
+                gameState.turnCorrectCount++;
+            } else {
+                playSound('wrong');
+            }
+
+            gameState.currentQuestionIdx++;
+
+            if (gameState.currentQuestionIdx < gameState.activeQuestions.length) {
+                loadCurrentQuestion();
+            } else {
+                evaluateTurn();
+            }
+        }
+
+        /* ==========================================================================
+           EVALUACIÓN Y AVANCE DE FICHA EN EL TABLERO
+           ========================================================================== */
+
+        function evaluateTurn() {
+            const player = gameState.players[gameState.currentPlayerIndex];
+            const totalQ = gameState.activeQuestions.length;
+            const allCorrect = gameState.turnCorrectCount === totalQ;
+
+            document.getElementById('question-panel').classList.add('hidden');
+            document.getElementById('turn-feedback-panel').classList.remove('hidden');
+
+            const iconBox = document.getElementById('feedback-icon');
+            const titleLabel = document.getElementById('feedback-title');
+            const descLabel = document.getElementById('feedback-desc');
+
+            if (allCorrect) {
+                let steps = gameState.selectedTurnDifficulty === 'facil' ? 1 : (gameState.selectedTurnDifficulty === 'medio' ? 2 : 3);
+                player.position += steps;
+                
+                if (player.position > gameConfig.maxBoardPosition) {
+                    player.position = gameConfig.maxBoardPosition;
+                }
+
+                iconBox.className = "w-16 h-16 rounded-full bg-emerald-500/20 border-2 border-emerald-500/40 text-emerald-400 mx-auto flex items-center justify-center text-3xl";
+                iconBox.innerHTML = `<i class="fa-solid fa-circle-check"></i>`;
+                titleLabel.innerText = "¡Excelente Turno!";
+                descLabel.innerText = `Respondiste correctamente ${gameState.turnCorrectCount} de ${totalQ}. Avanzas ${steps} casilla(s).`;
+            } else {
+                iconBox.className = "w-16 h-16 rounded-full bg-rose-500/20 border-2 border-rose-500/40 text-rose-400 mx-auto flex items-center justify-center text-3xl";
+                iconBox.innerHTML = `<i class="fa-solid fa-circle-xmark"></i>`;
+                titleLabel.innerText = "Fallaste el Reto";
+                descLabel.innerText = `Aciertos: ${gameState.turnCorrectCount} de ${totalQ}. Para avanzar en dificultad ${gameState.selectedTurnDifficulty.toUpperCase()} debías responder todas bien. Permaneces en tu casilla.`;
+            }
+
+            renderBoard();
+
+            // Verificar si el jugador actual llegó a la Meta (20)
+            if (player.position >= gameConfig.maxBoardPosition) {
+                setTimeout(() => {
+                    triggerWin(player);
+                }, 800);
+            }
+        }
+
+        function passTurnToNextPlayer() {
+            playSound('click');
+            // Cambiar turno
+            gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
+            updateTurnHeader();
+        }
+
+        /* ==========================================================================
+           VICTORIA Y REINICIO
+           ========================================================================== */
+
+        function triggerWin(player) {
+            playSound('win');
+            showScreen('win-screen');
+
+            document.getElementById('winner-title').innerText = `¡${player.name} ha ganado la Carrera!`;
+
+            if (window.confetti) {
+                confetti({
+                    particleCount: 140,
+                    spread: 80,
+                    origin: { y: 0.6 }
+                });
+            }
+        }
+
+        function confirmReset() {
+            playSound('click');
+            document.getElementById('confirm-modal').classList.remove('hidden');
+        }
+
+        function hideResetModal() {
+            playSound('click');
+            document.getElementById('confirm-modal').classList.add('hidden');
+        }
+
+        function confirmResetAction() {
+            hideResetModal();
+            resetGame();
+        }
+
+        function resetGame() {
+            showScreen('home-screen');
+        }
+
+        /* ==========================================================================
+           HELPERS: AUDIO Y MANEJO DE IMÁGENES LOCALES
+           ========================================================================== */
+
+        let soundEnabled = true;
+
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            const icon = document.getElementById('sound-icon');
+            if (soundEnabled) {
+                icon.className = "fa-solid fa-volume-high";
+            } else {
+                icon.className = "fa-solid fa-volume-xmark";
+            }
+        }
+
+        function playSound(type) {
+            if (!soundEnabled) return;
+            try {
+                // Sintetizador de efectos sonoros con Tone.js
+                const synth = new Tone.Synth().toDestination();
+                const now = Tone.now();
+                if (type === 'click') {
+                    synth.triggerAttackRelease("C5", "32n", now);
+                } else if (type === 'correct') {
+                    synth.triggerAttackRelease("G5", "16n", now);
+                    setTimeout(() => synth.triggerAttackRelease("C6", "8n", Tone.now()), 100);
+                } else if (type === 'wrong') {
+                    synth.triggerAttackRelease("G3", "8n", now);
+                    setTimeout(() => synth.triggerAttackRelease("E3", "8n", Tone.now()), 120);
+                } else if (type === 'win') {
+                    synth.triggerAttackRelease("C5", "8n", now);
+                    setTimeout(() => synth.triggerAttackRelease("E5", "8n", Tone.now()), 150);
+                    setTimeout(() => synth.triggerAttackRelease("G5", "4n", Tone.now()), 300);
+                }
+            } catch (e) {
+                // Fallback silencioso si el navegador bloquea audio antes de interacción
+            }
+        }
+
+        // Inicio: contador de señas y pantalla de menú
+        document.querySelectorAll('.sign-count').forEach(el => el.innerText = questionsDatabase.length);
+        showScreen('home-screen');
+
+        function createImgElement(src, alt, className) {
+            const img = document.createElement('img');
+            img.src = src;
+            img.alt = alt;
+            img.className = className;
+            // Fallback elegante en caso de que la imagen local no cargue o falte en el directorio
+            img.onerror = function() {
+                // Respaldo sin internet: cuadro con el nombre de la palabra
+                this.onerror = null;
+                const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="200"><rect width="100%" height="100%" fill="#0f172a"/><text x="50%" y="50%" fill="#2dd4bf" font-family="sans-serif" font-size="22" font-weight="bold" text-anchor="middle" dominant-baseline="middle">${alt}</text></svg>`;
+                this.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+            };
+            return img;
+        }
+    </script>
+</body>
+</html>
